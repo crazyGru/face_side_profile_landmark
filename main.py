@@ -3,10 +3,25 @@ import numpy as np
 from sklearn.cluster import DBSCAN
 from scipy.spatial.distance import cdist
 
+import requests
+
+response = requests.post(
+    'https://api.remove.bg/v1.0/removebg',
+    files={'image_file': open('./temp3.jpg', 'rb')},
+    data={'size': 'auto'},
+    headers={'X-Api-Key': 'k2XDaxdXet3NUy7WX34njqSJ'},
+)
+if response.status_code == requests.codes.ok:
+    with open('no-bg.png', 'wb') as out:
+        out.write(response.content)
+else:
+    print("Error:", response.status_code, response.text)
+
+
 # Read the image
-image = cv2.imread('./Source/m23.jpg', cv2.COLOR_BGR2GRAY)
+image = cv2.imread('./temp1.jpg', cv2.COLOR_BGR2GRAY)
 saving_image = image.copy()
-height, width, _ = image.shape
+height, width = image.shape
 image = cv2.resize(image, (width, height))
 
 # blurred = cv2.GaussianBlur(image, (0, 0), 1)
@@ -15,12 +30,12 @@ image = cv2.resize(image, (width, height))
 # unsharp_image = cv2.addWeighted(image, 3, blurred, -1, 0)
 
 # Convert the image to grayscale
-gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+gray = image.copy()
 
 mean_value = cv2.mean(gray)[0]
-if mean_value > 127:
-    gray = 255 - gray
-    mean_value = 255 - mean_value
+# if mean_value > 127:
+#     gray = 255 - gray
+#     mean_value = 255 - mean_value
 
 print(mean_value)
 
@@ -34,7 +49,7 @@ adjusted = cv2.convertScaleAbs(gray, alpha=alpha, beta=0)
 cv2.imshow("Gray", adjusted)
 cv2.imwrite("1.jpg", adjusted)
 
-ret, thresh = cv2.threshold(adjusted, mean_value, 255, cv2.THRESH_BINARY)
+ret, thresh = cv2.threshold(adjusted, 250, 255, cv2.THRESH_BINARY)
 
 # Find contours
 contours, hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -64,36 +79,32 @@ if len(contours) > 0:
     result = cv2.bitwise_and(image, mask)
     
     # Display the result
-    cv2.imshow("Largest Object", result)
+    cv2.imshow("Largest Object", mask)
     cv2.imwrite("4.jpg", result)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 else:
     print("No contours found in the image")
 
-height, width, _ = mask.shape
+cv2.waitKey(0)
+
+height, width = mask.shape
 print(height, width)
 temp = []
 for i in range(height):
     for j in range(width):
-        flag = False
-        for k in range(3):
-            if mask[i][j][k]:
-                flag = True
-        
-        if flag:
-            temp.append([i, j])
-            break
+            # print(mask[i][j], i, j)
+            if mask[i][j]:                
+                temp.append([i, j])
+                break
 
 contour_image = np.zeros((height, width, 3), np.uint8)
 
-print(len(temp))
 
 color = (0, 255, 0) 
 thickness = 1
 
 slash = height//200
-print(slash)
 
 features = []
 
@@ -126,7 +137,7 @@ for i, label in enumerate(labels):
 
 keys = point_sets.keys()
 
-print(keys)
+
 noised_removed_features = []
 for key in point_sets.keys():
     x = 0
@@ -170,7 +181,6 @@ for i, point_data in enumerate(points_data):
         points.append([x, y, i])
 
 
-print(points)
 points = sorted(points, key=lambda p: p[1])
 
 
@@ -184,9 +194,9 @@ first_short_array = []
 for i, distance in enumerate(distances):
     minx = min(distance)
     first_short_array.append([i, np.argmin(distance), minx])
-    print(i, ":", minx, noised_removed_features[i], points[np.argmin(distance)], ":", np.argmin(distance))
-    print(distance)
-    print("-----------------------------------")
+    # print(i, ":", minx, noised_removed_features[i], points[np.argmin(distance)], ":", np.argmin(distance))
+    # print(distance)
+    # print("-----------------------------------")
 
 first_short_array = sorted(first_short_array, key=lambda p: p[2])
 ###############################################################################################
@@ -202,8 +212,8 @@ for i, distance in enumerate(distances):
 
 second_short_array = sorted(second_short_array, key=lambda p: p[2])
 
-print(first_short_array)
-print(second_short_array)
+# print(first_short_array)
+# print(second_short_array)
 
 #######################   SET  FINAL   POINTS   #####################################
 final_points = np.zeros((len(second_short_array),3))
@@ -213,7 +223,6 @@ second_flags = np.zeros((1, len(second_short_array)))
 final_indexes = []
 
 for final_point in first_short_array:
-    print(final_point)
     if final_point[2] > 35:
         break
     if first_flags[0][final_point[0]] or second_flags[0][final_point[1]]:
@@ -251,7 +260,7 @@ final_points[26][1] = final_points[3][1]
 
 for i, final_point in enumerate(final_points):
     cv2.circle(saving_image, (int(final_point[0]), int(final_point[1])), 2, (255,255,0), 2)
-    print(final_point[2])
+    # print(final_point[2])
     cv2.putText(saving_image, str(int(30+final_point[2]-1)), (int(final_point[0]), int(final_point[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,0), thickness)
 
 cv2.imshow("finla", result)
